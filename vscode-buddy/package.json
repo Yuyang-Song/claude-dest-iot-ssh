@@ -1,7 +1,7 @@
 {
-  "name": "claude-buddy",
-  "displayName": "Claude Buddy",
-  "description": "M5StickC Plus hardware approval bridge for Claude Code",
+  "name": "claude-buddy-serial",
+  "displayName": "Claude Buddy Serial",
+  "description": "Windows BLE workaround: VS Code + serial bridge for M5StickC Plus",
   "version": "0.1.0",
   "engines": { "vscode": "^1.80.0" },
   "categories": ["Other"],
@@ -12,7 +12,7 @@
       "activitybar": [
         {
           "id": "claude-buddy",
-          "title": "Claude Buddy",
+          "title": "Claude Buddy Serial",
           "icon": "media/buddy.svg"
         }
       ]
@@ -27,7 +27,7 @@
       ]
     },
     "configuration": {
-      "title": "Claude Buddy",
+      "title": "Claude Buddy Serial",
       "properties": {
         "claudeBuddy.bridgePath": {
           "type": "string",
@@ -47,9 +47,9 @@
       }
     },
     "commands": [
-      { "command": "claudeBuddy.restart", "title": "Restart Bridge", "category": "Claude Buddy" },
-      { "command": "claudeBuddy.stop",    "title": "Stop Bridge",    "category": "Claude Buddy" },
-      { "command": "claudeBuddy.start",   "title": "Start Bridge",   "category": "Claude Buddy" }
+      { "command": "claudeBuddy.restart", "title": "Restart Bridge", "category": "Claude Buddy Serial" },
+      { "command": "claudeBuddy.stop",    "title": "Stop Bridge",    "category": "Claude Buddy Serial" },
+      { "command": "claudeBuddy.start",   "title": "Start Bridge",   "category": "Claude Buddy Serial" }
     ]
   },
   "scripts": {

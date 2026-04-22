@@ -1,4 +1,10 @@
-# claude-desktop-buddy
+# claude-buddy-serial
+
+> Fork note (knottttt): **Claude Buddy Serial** is a fork focused on a Windows
+> connectivity workaround. The original BLE Hardware Buddy flow was unstable
+> in my Windows environment (Claude Desktop could not reliably connect to the
+> device), so this fork gradually evolved toward a VS Code + USB serial bridge
+> implementation while keeping firmware compatibility and the buddy UX.
 
 Claude for macOS and Windows can connect Claude Cowork and Claude Code to
 maker devices over BLE, so developers and makers can build hardware that
@@ -66,11 +72,18 @@ If discovery isn't finding the stick:
 - Make sure it's awake (any button press)
 - Check the stick's settings menu → bluetooth is on
 
-## VS Code extension (this fork)
+## Fork direction: VS Code serial bridge (Windows BLE workaround)
 
-This fork also includes a local VS Code bridge under `vscode-buddy/` that
-talks to the device over USB serial (default `COM4` at `115200`) and mirrors
-Claude activity from local `~/.claude/projects/*.jsonl`.
+This fork adds a local VS Code bridge under `vscode-buddy/` that talks to the
+device over USB serial (default `COM4` at `115200`) and mirrors Claude
+activity from local `~/.claude/projects/*.jsonl`.
+
+Evolution path in this fork:
+
+1. Start from the official BLE buddy firmware and protocol.
+2. Work around Windows BLE connection issues by introducing serial gateway tooling.
+3. Add a VS Code sidebar panel for bridge lifecycle and hardware controls.
+4. Iterate protocol/control reliability (validation, visible control failures, reduced flash writes).
 
 ### Start
 
@@ -81,7 +94,7 @@ npm run compile
 ```
 
 Then load the extension in VS Code (Extension Development Host), open the
-`Claude Buddy` sidebar panel, and click `Start`.
+`Claude Buddy Serial` sidebar panel, and click `Start`.
 
 ### Panel controls
 
