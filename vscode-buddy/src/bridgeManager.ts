@@ -36,6 +36,7 @@ export class BridgeManager implements vscode.Disposable {
     this.stateWriter = new StateWriter(this.gateway, this.tracker);
 
     this.gateway.onStatusChange(s => this._onGatewayStatus(s));
+    this.gateway.onDeviceLine(line => this._onDeviceLine(line));
     this.tracker.onSnapshotChange(s => {
       this._appendLog(`[tracker] mode=${s.mode} file=${s.jsonlFile} | ${s.detail}`);
       this._refreshStatus();
@@ -74,6 +75,22 @@ export class BridgeManager implements vscode.Disposable {
 
   isOwnProcess(): boolean { return true; }
 
+  setHardware(cfg: { brightness?: number; led?: boolean; sound?: boolean }): void {
+    if (!this.gateway.sendLine({ set: cfg })) {
+      this._appendLog('[control] send failed: hardware command not sent');
+    }
+  }
+
+  setSpecies(idx: number): void {
+    if (!Number.isInteger(idx)) {
+      this._appendLog('[control] send failed: species idx is invalid');
+      return;
+    }
+    if (!this.gateway.sendLine({ cmd: 'species', idx })) {
+      this._appendLog('[control] send failed: species command not sent');
+    }
+  }
+
   private _onGatewayStatus(s: GatewayStatus): void {
     this._refreshStatus(s);
   }
@@ -87,6 +104,18 @@ export class BridgeManager implements vscode.Disposable {
       case 'starting':     this._setStatus('starting'); break;
       case 'stopped':      this._setStatus('stopped'); break;
     }
+  }
+
+  private _onDeviceLine(line: string): void {
+    let obj: Record<string, unknown>;
+    try {
+      obj = JSON.parse(line) as Record<string, unknown>;
+    } catch {
+      return;
+    }
+    if (typeof obj.ack !== 'string' || obj.ok !== false) { return; }
+    const reason = typeof obj.reason === 'string' ? obj.reason : 'unknown_error';
+    this._appendLog(`[control] device rejected ${obj.ack}: ${reason}`);
   }
 
   private _setStatus(s: BridgeStatus): void {

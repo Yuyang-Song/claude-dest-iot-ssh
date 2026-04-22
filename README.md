@@ -66,6 +66,34 @@ If discovery isn't finding the stick:
 - Make sure it's awake (any button press)
 - Check the stick's settings menu → bluetooth is on
 
+## VS Code extension (this fork)
+
+This fork also includes a local VS Code bridge under `vscode-buddy/` that
+talks to the device over USB serial (default `COM4` at `115200`) and mirrors
+Claude activity from local `~/.claude/projects/*.jsonl`.
+
+### Start
+
+```bash
+cd vscode-buddy
+npm install
+npm run compile
+```
+
+Then load the extension in VS Code (Extension Development Host), open the
+`Claude Buddy` sidebar panel, and click `Start`.
+
+### Panel controls
+
+- `Brightness` (0-4) sends `{"set":{"brightness":N}}`
+- `LED` ON/OFF sends `{"set":{"led":true|false}}`
+- `Sound` ON/OFF sends `{"set":{"sound":true|false}}`
+- `Pet` sends `{"cmd":"species","idx":N}` (`0..17`)
+
+UI is optimistic by design: controls update immediately. If serial is down or
+the device rejects a command, the panel log shows `[control] ...` and a short
+top warning appears.
+
 ## Controls
 
 |                         | Normal               | Pet         | Info        | Approval    |
@@ -163,6 +191,24 @@ src/
   stats.h        — NVS-backed stats, settings, owner, species choice
 characters/      — example GIF character packs
 tools/           — generators and converters
+vscode-buddy/    — VS Code extension + serial gateway + activity tracker
+```
+
+## Serial protocol additions used by the VS Code bridge
+
+In addition to heartbeat snapshots and permission responses, this firmware
+accepts:
+
+```json
+{"set":{"brightness":4,"led":true,"sound":false}}
+{"cmd":"species","idx":7}
+```
+
+`species` accepts `0..17` (ASCII pets) and `0xFF` (GIF mode sentinel when a
+GIF character exists). Invalid values are rejected with:
+
+```json
+{"ack":"species","ok":false,"reason":"idx_out_of_range"}
 ```
 
 ## Availability

@@ -20,6 +20,16 @@ static void _xAck(const char* what, bool ok, uint32_t n = 0) {
   Serial.write(b, len);
   bleWrite((const uint8_t*)b, len);
 }
+static void _xAckReason(const char* what, const char* reason, uint32_t n = 0) {
+  char b[128];
+  int len = snprintf(
+    b, sizeof(b),
+    "{\"ack\":\"%s\",\"ok\":false,\"n\":%lu,\"reason\":\"%s\"}\n",
+    what, (unsigned long)n, reason ? reason : "error"
+  );
+  Serial.write(b, len);
+  bleWrite((const uint8_t*)b, len);
+}
 
 static uint32_t _xWipeDir(const char* dir) {
   File d = LittleFS.open(dir);
@@ -88,7 +98,21 @@ inline bool xferCommand(JsonDocument& doc) {
   if (strcmp(cmd, "species") == 0) {
     extern bool buddyMode, gifAvailable;
     extern void buddySetSpeciesIdx(uint8_t);
-    uint8_t idx = doc["idx"] | 0xFF;
+    extern uint8_t buddySpeciesCount();
+
+    JsonVariant idxVar = doc["idx"];
+    if (idxVar.isNull() || !(idxVar.is<int>() || idxVar.is<unsigned int>())) {
+      _xAckReason("species", "idx_out_of_range");
+      return true;
+    }
+    int32_t idxI = idxVar.as<int32_t>();
+    uint8_t nSpecies = buddySpeciesCount();
+    if (!((idxI >= 0 && idxI < nSpecies) || idxI == 0xFF)) {
+      _xAckReason("species", "idx_out_of_range");
+      return true;
+    }
+
+    uint8_t idx = (uint8_t)idxI;
     speciesIdxSave(idx);
     buddyMode = !(gifAvailable && idx == 0xFF);
     if (buddyMode) buddySetSpeciesIdx(idx);

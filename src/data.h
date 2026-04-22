@@ -67,6 +67,20 @@ inline const char* dataScenarioName() {
 static bool _rtcValid = false;
 inline bool dataRtcValid() { return _rtcValid; }
 
+struct PendingSet {
+  bool dirty;
+  int8_t brightness;  // -1 = unchanged, 0-4 = set
+  int8_t led;         // -1 = unchanged, 0 = off, 1 = on
+  int8_t sound;       // -1 = unchanged, 0 = off, 1 = on
+  int8_t dispMode;    // -1 = unchanged, 0 = DISP_NORMAL, 1 = DISP_PET
+};
+static PendingSet _pendingSet = { false, -1, -1, -1, -1 };
+inline PendingSet dataTakePendingSet() {
+  PendingSet s = _pendingSet;
+  _pendingSet = { false, -1, -1, -1, -1 };
+  return s;
+}
+
 static void _applyJson(const char* line, TamaState* out) {
   JsonDocument doc;
   if (deserializeJson(doc, line)) return;
@@ -122,6 +136,28 @@ static void _applyJson(const char* line, TamaState* out) {
   } else {
     out->promptId[0] = 0; out->promptTool[0] = 0; out->promptHint[0] = 0;
   }
+  JsonObject setObj = doc["set"];
+  if (!setObj.isNull()) {
+    if (setObj.containsKey("brightness")) {
+      int8_t v = setObj["brightness"].as<int8_t>();
+      if (v >= 0 && v <= 4) { _pendingSet.dirty = true; _pendingSet.brightness = v; }
+    }
+    if (setObj.containsKey("led")) {
+      _pendingSet.dirty = true;
+      _pendingSet.led = setObj["led"].as<bool>() ? 1 : 0;
+    }
+    if (setObj.containsKey("sound")) {
+      _pendingSet.dirty = true;
+      _pendingSet.sound = setObj["sound"].as<bool>() ? 1 : 0;
+    }
+  }
+
+  const char* disp = doc["disp"];
+  if (disp) {
+    if (strcmp(disp, "pet") == 0)    { _pendingSet.dirty = true; _pendingSet.dispMode = 1; }
+    if (strcmp(disp, "normal") == 0) { _pendingSet.dirty = true; _pendingSet.dispMode = 0; }
+  }
+
   out->lastUpdated = millis();
   _lastLiveMs = millis();
 }

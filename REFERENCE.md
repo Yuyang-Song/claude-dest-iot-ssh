@@ -130,12 +130,23 @@ Any command the desktop sends with a `cmd` field expects a matching ack:
 Set `ok:false` and optionally `error:"..."` if you couldn't do it. `n` is a
 generic counter (e.g. bytes written for chunk acks, otherwise 0).
 
+For `species`, devices may include a machine-readable `reason` when rejected,
+for example:
+
+```json
+{"ack":"species","ok":false,"reason":"idx_out_of_range"}
+```
+
 | Command                          | Payload                  | Ack you send back            |
 | -------------------------------- | ------------------------ | ---------------------------- |
 | `{"cmd":"status"}`               | —                        | see Status response below    |
 | `{"cmd":"name","name":"Clawd"}`  | sets device display name | `{"ack":"name","ok":true}`   |
 | `{"cmd":"owner","name":"Felix"}` | sets owner name          | `{"ack":"owner","ok":true}`  |
 | `{"cmd":"unpair"}`               | erase stored BLE bonds   | `{"ack":"unpair","ok":true}` |
+| `{"cmd":"species","idx":7}`      | set ASCII species index  | `{"ack":"species","ok":true}` |
+| `{"set":{"brightness":4}}`       | set backlight level      | no ack required               |
+| `{"set":{"led":true}}`           | LED pulse enable/disable | no ack required               |
+| `{"set":{"sound":false}}`        | sound enable/disable     | no ack required               |
 
 **Status response.** The desktop polls this every couple of seconds to
 populate the Hardware Buddy window's stats panel:

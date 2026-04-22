@@ -1006,6 +1006,38 @@ void loop() {
   uint32_t now = millis();
 
   dataPoll(&tama);
+  {
+    PendingSet ps = dataTakePendingSet();
+    if (ps.dirty) {
+      if (ps.brightness >= 0 && brightLevel != (uint8_t)ps.brightness) {
+        brightLevel = (uint8_t)ps.brightness;
+        applyBrightness();
+      }
+
+      bool settingsDirty = false;
+      if (ps.led >= 0) {
+        bool led = (ps.led == 1);
+        if (settings().led != led) {
+          settings().led = led;
+          settingsDirty = true;
+        }
+      }
+      if (ps.sound >= 0) {
+        bool sound = (ps.sound == 1);
+        if (settings().sound != sound) {
+          settings().sound = sound;
+          settingsDirty = true;
+        }
+      }
+      if (settingsDirty) settingsSave();
+
+      if (ps.dispMode >= 0 && displayMode != (uint8_t)ps.dispMode) {
+        displayMode = (uint8_t)ps.dispMode;
+        applyDisplayMode();
+        characterInvalidate();
+      }
+    }
+  }
   if (statsPollLevelUp()) triggerOneShot(P_CELEBRATE, 3000);
   baseState = derive(tama);
 
@@ -1022,15 +1054,6 @@ void loop() {
     digitalWrite(LED_PIN, HIGH);
   }
 
-  // shake → dizzy + force scenario advance
-  if (now - lastShakeCheck > 50) {
-    lastShakeCheck = now;
-    if (!menuOpen && !screenOff && checkShake() && (int32_t)(now - oneShotUntil) >= 0) {
-      wake();
-      triggerOneShot(P_DIZZY, 2000);
-      Serial.println("shake: dizzy");
-    }
-  }
 
   // BtnA: step through fake scenarios
   // Prompt arrival: beep, reset response flag
@@ -1205,6 +1228,22 @@ void loop() {
     else if (friday && h >= 15)      activeState = (now/4000 % 3 == 0) ? P_CELEBRATE : P_IDLE;
     else if (h >= 22 || h == 0)      activeState = (now/7000 % 3 == 0) ? P_DIZZY : P_SLEEP;
     else                             activeState = (now/10000 % 5 == 0) ? P_SLEEP : P_IDLE;
+  }
+
+  // shake → dizzy; if clock face is showing, exit clock mode first so the
+  // animation is visible (clock would overwrite activeState every frame).
+  // Screen-off state is intentionally excluded — shake does not wake the screen.
+  if (now - lastShakeCheck > 50) {
+    lastShakeCheck = now;
+    if (!menuOpen && !screenOff && checkShake() && (int32_t)(now - oneShotUntil) >= 0) {
+      if (clocking || landscapeClock) {
+        displayMode = DISP_PET;
+        applyDisplayMode();
+        characterInvalidate();
+      }
+      triggerOneShot(P_DIZZY, 2000);
+      Serial.println("shake: dizzy");
+    }
   }
 
   static uint32_t lastPasskey = 0;
