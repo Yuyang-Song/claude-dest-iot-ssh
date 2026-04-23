@@ -44,6 +44,13 @@
 - Send failure or device rejection is logged as `[control] ...`
 - A short top alert is shown in the panel for control errors
 
+## Recent fixes
+
+- Fixed false `waiting approval` / `attention` state for long-running normal tool calls.
+- Codex calls now enter approval-waiting only when the call explicitly requests escalated sandbox permission (`sandbox_permissions=require_escalated`).
+- Prevents unintended LED blinking caused by non-approval command execution.
+- Added regression tests in `vscode-buddy/src/activityTracker.test.ts`.
+
 ## Quick start
 
 ### Firmware
