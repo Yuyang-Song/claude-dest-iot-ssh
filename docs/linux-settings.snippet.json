@@ -1,0 +1,17 @@
+{
+  "_comment": "把这个 hooks 块合并到 Linux 服务器上的 ~/.claude/settings.json。如已有 claw-jump 的 Stop/Notification,只追加 PreToolUse 这一节即可。改完重启 Claude Code 会话才生效。",
+  "_path": "~/.claude/settings.json",
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 /volume/pt-dev/users/yuyang/claude-buddy-serial-port/tools/hook_permission.py"
+          }
+        ]
+      }
+    ]
+  }
+}
