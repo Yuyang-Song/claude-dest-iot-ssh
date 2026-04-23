@@ -88,13 +88,21 @@ static void _applyJson(const char* line, TamaState* out) {
 
   // Bridge sends {"time":[epoch_sec, tz_offset_sec]}; gmtime_r on the
   // adjusted epoch yields local components including weekday. M5Unified
-  // 的 setDateTime 直接接受 struct tm,StickC Plus 上落到 BM8563,StickS3
-  // 上落到 SoC 内部 RTC(掉电丢,重启后 bridge 会重新 push)。
+  // 的 setDateTime 接受 m5::rtc_datetime_t(值形式),StickC Plus 上落到
+  // BM8563,StickS3 上落到 SoC 内部 RTC(掉电丢,重启后 bridge 会重新 push)。
   JsonArray t = doc["time"];
   if (!t.isNull() && t.size() == 2) {
     time_t local = (time_t)t[0].as<uint32_t>() + (int32_t)t[1];
     struct tm lt; gmtime_r(&local, &lt);
-    M5.Rtc.setDateTime(&lt);
+    m5::rtc_datetime_t dt;
+    dt.date.year    = (uint16_t)(lt.tm_year + 1900);
+    dt.date.month   = (uint8_t)(lt.tm_mon + 1);
+    dt.date.date    = (uint8_t)lt.tm_mday;
+    dt.date.weekDay = (uint8_t)lt.tm_wday;
+    dt.time.hours   = (uint8_t)lt.tm_hour;
+    dt.time.minutes = (uint8_t)lt.tm_min;
+    dt.time.seconds = (uint8_t)lt.tm_sec;
+    M5.Rtc.setDateTime(dt);
     extern uint32_t _clkLastRead;
     _clkLastRead = 0;   // force re-read so _clkDt and _rtcValid agree
     _rtcValid = true;
@@ -136,15 +144,16 @@ static void _applyJson(const char* line, TamaState* out) {
   }
   JsonObject setObj = doc["set"];
   if (!setObj.isNull()) {
-    if (setObj.containsKey("brightness")) {
+    // ArduinoJson 7.4+ 建议 obj[key].is<T>() 代替 containsKey() 做键存在性探测。
+    if (setObj["brightness"].is<int>()) {
       int8_t v = setObj["brightness"].as<int8_t>();
       if (v >= 0 && v <= 4) { _pendingSet.dirty = true; _pendingSet.brightness = v; }
     }
-    if (setObj.containsKey("led")) {
+    if (setObj["led"].is<bool>()) {
       _pendingSet.dirty = true;
       _pendingSet.led = setObj["led"].as<bool>() ? 1 : 0;
     }
-    if (setObj.containsKey("sound")) {
+    if (setObj["sound"].is<bool>()) {
       _pendingSet.dirty = true;
       _pendingSet.sound = setObj["sound"].as<bool>() ? 1 : 0;
     }

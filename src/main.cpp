@@ -381,15 +381,16 @@ static void clockRefreshRtc() {
   if (millis() - _clkLastRead < 1000) return;
   _clkLastRead = millis();
   _onUsb = hw::getVbusVoltageMv() > 4000;
-  struct tm ti;
-  if (M5.Rtc.getDateTime(&ti)) {
-    _clkTm.Hours   = (uint8_t)ti.tm_hour;
-    _clkTm.Minutes = (uint8_t)ti.tm_min;
-    _clkTm.Seconds = (uint8_t)ti.tm_sec;
-    _clkDt.WeekDay = (uint8_t)ti.tm_wday;
-    _clkDt.Month   = (uint8_t)(ti.tm_mon + 1);
-    _clkDt.Date    = (uint8_t)ti.tm_mday;
-    _clkDt.Year    = (uint16_t)(ti.tm_year + 1900);
+  // M5Unified 的 getDateTime 只接受 m5::rtc_datetime_t*,不是 struct tm*。
+  m5::rtc_datetime_t dt;
+  if (M5.Rtc.getDateTime(&dt)) {
+    _clkTm.Hours   = dt.time.hours;
+    _clkTm.Minutes = dt.time.minutes;
+    _clkTm.Seconds = dt.time.seconds;
+    _clkDt.WeekDay = dt.date.weekDay;
+    _clkDt.Month   = dt.date.month;
+    _clkDt.Date    = dt.date.date;
+    _clkDt.Year    = dt.date.year;
   }
 }
 
