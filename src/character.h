@@ -25,7 +25,7 @@ void characterClose();   // close GIF + clear loaded flag; FS stays mounted   //
 // header strip; off renders full-size centered in the upper home area.
 // Adaptive to actual canvas height — no padding required in source art.
 void characterSetPeek(bool peek);
-// 渲染目标用 LGFXBase(M5.Lcd 或 M5Canvas 的共同基类)。
-void characterRenderTo(LGFXBase* tgt, int cx, int cy);
+// 渲染目标用 lgfx::LGFXBase(M5.Lcd 或 M5Canvas 的共同基类)。
+void characterRenderTo(lgfx::LGFXBase* tgt, int cx, int cy);
 
 const Palette& characterPalette();

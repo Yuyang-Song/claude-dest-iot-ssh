@@ -30,10 +30,10 @@ const uint16_t BUDDY_BLUE   = 0x041F;
 
 // ──────────────── shared rendering helpers ────────────────
 // Render target indirection: defaults to the sprite, but can retarget to
-// M5.Lcd for landscape clock mode (both M5GFX and M5Canvas inherit LGFXBase).
+// M5.Lcd for landscape clock mode (both M5GFX and M5Canvas inherit lgfx::LGFXBase).
 // Coords stay fixed — species hardcode BUDDY_X_CENTER/BUDDY_Y_OVERLAY in
 // their particle calls, so retargeting position would only move the body.
-static LGFXBase* _tgt = &spr;
+static lgfx::LGFXBase* _tgt = &spr;
 // 2× on home screen, 1× in peek (PET/INFO) and landscape clock. Species
 // art is space-padded to a fixed width for alignment at 1×; at 2× we trim
 // and re-center per line so the padding doesn't push ink off-screen.
@@ -153,17 +153,17 @@ void buddySetPeek(bool peek) {
   buddyInvalidate();
 }
 
-// One-shot render to an arbitrary LGFXBase surface (M5.Lcd for landscape
+// One-shot render to an arbitrary lgfx::LGFXBase surface (M5.Lcd for landscape
 // clock). Bypasses tick gating and the sprite fillRect — caller owns
 // clearing. Advances the frame counter so animation runs even when
 // buddyTick is bypassed.
 // Landscape clock callsite — always 1×.
-void buddyRenderTo(LGFXBase* tgt, uint8_t personaState) {
+void buddyRenderTo(lgfx::LGFXBase* tgt, uint8_t personaState) {
   uint8_t prevS = _scale; _scale = 1;
   if (personaState >= 7) personaState = B_IDLE;
   uint32_t now = millis();
   if ((int32_t)(now - nextTickAt) >= 0) { nextTickAt = now + TICK_MS; tickCount++; }
-  LGFXBase* prev = _tgt;
+  lgfx::LGFXBase* prev = _tgt;
   _tgt = tgt;
   const Species* sp = SPECIES_TABLE[currentSpeciesIdx];
   if (sp->states[personaState]) sp->states[personaState](tickCount);

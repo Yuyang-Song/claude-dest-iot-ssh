@@ -1,6 +1,6 @@
 #pragma once
 #include <stdint.h>
-#include <M5Unified.h>   // 提供 M5GFX / M5Canvas / LGFXBase
+#include <M5Unified.h>   // 提供 M5GFX / M5Canvas / lgfx::LGFXBase
 
 // Multi-species ASCII buddy renderer. Each species lives in its own
 // src/buddies/<name>.cpp file and exposes 7 state functions matching
@@ -9,8 +9,8 @@
 void buddyInit();
 void buddyTick(uint8_t personaState);
 void buddyInvalidate();
-// 渲染目标用 LGFXBase(M5GFX 和 M5Canvas 共同基类),这样既能传 &M5.Lcd 也能传 &spr。
-void buddyRenderTo(LGFXBase* tgt, uint8_t personaState);
+// 渲染目标用 lgfx::LGFXBase(M5GFX 和 M5Canvas 共同基类),这样既能传 &M5.Lcd 也能传 &spr。
+void buddyRenderTo(lgfx::LGFXBase* tgt, uint8_t personaState);
 void buddySetSpecies(const char* name);
 void buddySetSpeciesIdx(uint8_t idx);
 void buddyNextSpecies();
