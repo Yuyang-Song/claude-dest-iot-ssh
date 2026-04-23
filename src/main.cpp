@@ -1,11 +1,13 @@
-#include <M5StickCPlus.h>
+#include <M5Unified.h>
 #include <LittleFS.h>
 #include <stdarg.h>
 #include "ble_bridge.h"
 #include "data.h"
 #include "buddy.h"
+#include "hal_hw.h"
 
-TFT_eSprite spr = TFT_eSprite(&M5.Lcd);
+// M5Unified 的 sprite 类型。构造参数传 &M5.Lcd(M5GFX 实例)作为底画布。
+M5Canvas spr(&M5.Lcd);
 
 // Advertise as "Claude-XXXX" (last two BT MAC bytes) so multiple sticks
 // in one room are distinguishable in the desktop picker. Name persists in
@@ -24,7 +26,7 @@ static void startBt() {
 const int W = 135, H = 240;
 const int CX = W / 2;
 const int CY_BASE = 120;
-const int LED_PIN = 10;          // red LED, active-low
+// LED 控制走 hw::setLed;不要直接 pinMode(10,...) — StickS3 上 GPIO10 是 Grove SDA。
 
 // Colors used across multiple UI surfaces
 const uint16_t HOT   = 0xFA20;   // red-orange: warnings, impatience, deny
@@ -91,16 +93,16 @@ uint32_t promptArrivedMs = 0;
 // Face-down = Z-axis dominant and negative. Debounced so a toss doesn't count.
 static bool isFaceDown() {
   float ax, ay, az;
-  M5.Imu.getAccelData(&ax, &ay, &az);
+  M5.Imu.getAccel(&ax, &ay, &az);
   return az < -0.7f && fabsf(ax) < 0.4f && fabsf(ay) < 0.4f;
 }
 
-static void applyBrightness() { M5.Axp.ScreenBreath(20 + brightLevel * 20); }
+static void applyBrightness() { hw::setScreenBrightness(20 + brightLevel * 20); }
 
 static void wake() {
   lastInteractMs = millis();
   if (screenOff) {
-    M5.Axp.SetLDO2(true);
+    hw::setLcdPower(true);
     applyBrightness();
     screenOff = false;
     wakeTransitionUntil = millis() + 12000;
@@ -111,7 +113,7 @@ bool     responseSent = false;
 uint32_t responseSentMs = 0;
 
 static void beep(uint16_t freq, uint16_t dur) {
-  if (settings().sound) M5.Beep.tone(freq, dur);
+  if (settings().sound) M5.Speaker.tone(freq, dur);
 }
 
 static void sendCmd(const char* json) {
@@ -309,7 +311,7 @@ static void drawReset() {
 void menuConfirm() {
   switch (menuSel) {
     case 0: settingsOpen = true; menuOpen = false; settingsSel = 0; break;
-    case 1: M5.Axp.PowerOff(); break;
+    case 1: hw::powerOff(); break;
     case 2:
     case 3:
       menuOpen = false;
@@ -364,21 +366,36 @@ static uint8_t paintedOrient = 0;
 // RTC and IMU share an I2C bus. Reading the RTC at 60fps starves the IMU
 // reads in clockUpdateOrient — orientation detection gets noisy. Cache the
 // time once per second; mood logic and drawClock both read from here.
-static RTC_TimeTypeDef _clkTm;
-static RTC_DateTypeDef _clkDt;
-uint32_t               _clkLastRead = 0;   // zeroed by data.h on time-sync
-static bool            _onUsb       = false;
+//
+// 保留原 _clkTm.Hours / _clkDt.Month 之类的字段引用,兼容老代码。底层
+// 改成 struct tm(M5Unified 的 getDateTime 统一接口),按板型自动走 BM8563
+// 或 SoC 内部 RTC。StickS3 没有 RTC 芯片,bridge 没 push time 前 _rtcValid=false,
+// 绘制时钟会显示 "set the time"。
+struct ClockTime { uint8_t Hours, Minutes, Seconds; };
+struct ClockDate { uint8_t WeekDay, Month, Date; uint16_t Year; };
+static ClockTime _clkTm;
+static ClockDate _clkDt;
+uint32_t         _clkLastRead = 0;   // zeroed by data.h on time-sync
+static bool      _onUsb       = false;
 static void clockRefreshRtc() {
   if (millis() - _clkLastRead < 1000) return;
   _clkLastRead = millis();
-  _onUsb = M5.Axp.GetVBusVoltage() > 4.0f;
-  M5.Rtc.GetTime(&_clkTm);
-  M5.Rtc.GetDate(&_clkDt);
+  _onUsb = hw::getVbusVoltageMv() > 4000;
+  struct tm ti;
+  if (M5.Rtc.getDateTime(&ti)) {
+    _clkTm.Hours   = (uint8_t)ti.tm_hour;
+    _clkTm.Minutes = (uint8_t)ti.tm_min;
+    _clkTm.Seconds = (uint8_t)ti.tm_sec;
+    _clkDt.WeekDay = (uint8_t)ti.tm_wday;
+    _clkDt.Month   = (uint8_t)(ti.tm_mon + 1);
+    _clkDt.Date    = (uint8_t)ti.tm_mday;
+    _clkDt.Year    = (uint16_t)(ti.tm_year + 1900);
+  }
 }
 
 static void clockUpdateOrient() {
   float ax, ay, az;
-  M5.Imu.getAccelData(&ax, &ay, &az);
+  M5.Imu.getAccel(&ax, &ay, &az);
   uint8_t lock = settings().clockRot;
   if (lock == 1) { clockOrient = 0; return; }
   if (lock == 2) {
@@ -506,7 +523,7 @@ void triggerOneShot(PersonaState s, uint32_t durMs) {
 
 bool checkShake() {
   float ax, ay, az;
-  M5.Imu.getAccelData(&ax, &ay, &az);
+  M5.Imu.getAccel(&ax, &ay, &az);
   float mag = sqrtf(ax*ax + ay*ay + az*az);
   float delta = fabsf(mag - accelBaseline);
   accelBaseline = accelBaseline * 0.95f + mag * 0.05f;
@@ -608,9 +625,9 @@ void drawInfo() {
   } else if (infoPage == 3) {
     _infoHeader(p, y, "DEVICE", infoPage);
 
-    int vBat_mV = (int)(M5.Axp.GetBatVoltage() * 1000);
-    int iBat_mA = (int)M5.Axp.GetBatCurrent();
-    int vBus_mV = (int)(M5.Axp.GetVBusVoltage() * 1000);
+    int vBat_mV = (int)hw::getBatVoltageMv();
+    int iBat_mA = (int)hw::getBatCurrentMa();
+    int vBus_mV = (int)hw::getVbusVoltageMv();
     int pct = (vBat_mV - 3200) / 10;   // (v-3.2)/(4.2-3.2)*100 = (v-3.2)*100 = (mv-3200)/10
     if (pct < 0) pct = 0; if (pct > 100) pct = 100;
     bool usb = vBus_mV > 4000;
@@ -642,7 +659,7 @@ void drawInfo() {
     ln("  heap     %uKB", ESP.getFreeHeap() / 1024);
     ln("  bright   %u/4", brightLevel);
     ln("  bt       %s", settings().bt ? (dataBtActive() ? "linked" : "on") : "off");
-    ln("  temp     %dC", (int)M5.Axp.GetTempInAXP192());
+    ln("  temp     %dC", (int)hw::getChipTempC());
 
   } else if (infoPage == 4) {
     _infoHeader(p, y, "BLUETOOTH", infoPage);
@@ -697,8 +714,13 @@ void drawInfo() {
     spr.setTextColor(p.textDim, p.bg);
     ln("hardware");
     y += 4;
+#ifdef TARGET_STICKS3
+    ln("M5 StickS3");
+    ln("ESP32-S3 + M5PM1");
+#else
     ln("M5StickC Plus");
     ln("ESP32 + AXP192");
+#endif
   }
 }
 
@@ -951,13 +973,19 @@ void drawHUD() {
 }
 
 void setup() {
-  M5.begin();
+  // M5Unified 统一入口:探测板型 → init Display / Imu / Rtc / Power / Speaker / Btn。
+  auto cfg = M5.config();
+  cfg.internal_spk = true;      // 启用板载喇叭(StickS3 是 AW8737,StickC Plus 是 PWM Beep)
+  cfg.internal_mic = false;
+  M5.begin(cfg);
+  hw::init();
   M5.Lcd.setRotation(0);
-  M5.Imu.Init();
-  M5.Beep.begin();
+  // M5.begin() 已经初始化 Imu;这里显式调一次 begin 不会出错,兼容老行为
+  M5.Imu.begin();
+  M5.Speaker.begin();
+  M5.Speaker.setVolume(128);    // 0..255,一半音量
   startBt();
-  pinMode(LED_PIN, OUTPUT);
-  digitalWrite(LED_PIN, HIGH);   // off
+  hw::setLed(false);             // start with LED off
   applyBrightness();
   lastInteractMs = millis();
   statsLoad();
@@ -1001,8 +1029,8 @@ void setup() {
 }
 
 void loop() {
+  // M5Unified 的 Speaker 是异步的,不需要 update。M5.update() 驱动所有 Btn 状态机。
   M5.update();
-  M5.Beep.update();
   t++;
   uint32_t now = millis();
 
@@ -1050,9 +1078,9 @@ void loop() {
 
   // LED: pulse on attention, otherwise off
   if (activeState == P_ATTENTION && settings().led) {
-    digitalWrite(LED_PIN, (now / 400) % 2 ? LOW : HIGH);
+    hw::setLed(((now / 400) % 2) == 0);   // ≈ 1.25Hz blink
   } else {
-    digitalWrite(LED_PIN, HIGH);
+    hw::setLed(false);
   }
 
 
@@ -1102,11 +1130,11 @@ void loop() {
 
   // AXP power button (left side): short-press toggles screen off.
   // Long-press (6s) still powers off the device via AXP hardware.
-  if (M5.Axp.GetBtnPress() == 0x02) {
+  if (hw::pwrBtnPress() == 2) {
     if (screenOff) {
       wake();
     } else {
-      M5.Axp.SetLDO2(false);
+      hw::setLcdPower(false);
       screenOff = true;
     }
   }
@@ -1321,7 +1349,7 @@ void loop() {
   if (!napping && faceDownFrames >= 15) {
     napping = true;
     napStartMs = now;
-    M5.Axp.ScreenBreath(8);
+    hw::setScreenBrightness(8);
     dimmed = true;
   } else if (napping && faceDownFrames <= -8) {
     napping = false;
@@ -1335,7 +1363,7 @@ void loop() {
   // No auto-off on USB power — clock face wants to stay visible while charging.
   if (!screenOff && !inPrompt && !_onUsb
       && millis() - lastInteractMs > SCREEN_OFF_MS) {
-    M5.Axp.SetLDO2(false);
+    hw::setLcdPower(false);
     screenOff = true;
   }
 

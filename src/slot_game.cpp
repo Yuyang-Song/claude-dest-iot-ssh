@@ -1,7 +1,7 @@
 #include "slot_game.h"
-#include <M5StickCPlus.h>
+#include <M5Unified.h>
 
-extern TFT_eSprite spr;
+extern M5Canvas spr;
 
 // ── symbols ────────────────────────────────────────────────────────────────
 static const char*  SYM[7] = { "[7]", "|=|", "(@)", "/o\\", "$$$", "(O)", "###" };
